@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>游戏音频自动切换 - 使用说明</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #0f1420; color: #e6ebf4; line-height: 1.7; padding: 32px 20px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 26px; color: #4aa3ff; border-bottom: 2px solid #2a3a55; padding-bottom: 12px; margin-bottom: 24px; }
+  h2 { font-size: 18px; color: #4aa3ff; margin: 28px 0 12px; }
+  h3 { font-size: 15px; color: #8fb9e8; margin: 16px 0 8px; }
+  p { margin: 8px 0; }
+  .card { background: #161e2e; border: 1px solid #26334d; border-radius: 10px; padding: 18px 20px; margin: 14px 0; }
+  .ok { color: #5fd68a; font-weight: bold; }
+  .warn { color: #f5b84e; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid #2a3a55; padding: 8px 12px; text-align: left; }
+  th { background: #1c2740; color: #8fb9e8; }
+  code { background: #1c2740; color: #7dd3fc; padding: 2px 7px; border-radius: 4px; font-size: 13px; font-family: Consolas, monospace; }
+  .file { background: #1c2740; border-radius: 8px; padding: 14px 16px; font-family: Consolas, monospace; font-size: 13px; white-space: pre; overflow-x: auto; color: #c9d6ea; }
+  .step { counter-increment: step; margin: 10px 0 10px 0; padding-left: 4px; }
+  ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  .footer { margin-top: 36px; color: #5a6b85; font-size: 13px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎧 游戏音频自动切换 · 使用说明</h1>
+
+  <div class="card">
+    <p><strong>功能</strong>：当检测到 <b>无畏契约</b> 或 <b>暗区突围:无限</b> 的游戏本体运行时，自动将系统默认输出设备（含语音通信设备）切换为 <b>耳机</b>；游戏全部关闭后，自动恢复为 <b>扬声器</b>。</p>
+    <p><strong>形态</strong>：托盘常驻应用 —— 启动后驻留系统托盘（任务栏右下角），右键图标可退出，退出后进程完全结束、不占用后台。</p>
+  </div>
+
+  <h2>一、文件清单</h2>
+  <table>
+    <tr><th>文件</th><th>说明</th></tr>
+    <tr><td><code>GameAudioSwitcher.exe</code></td><td>主程序（.NET Framework 4.8，Windows 10/11 自带运行环境，双击即用）</td></tr>
+    <tr><td><code>config.ini</code></td><td>配置文件（设备名 / 游戏进程名 / 检测间隔，UTF-8 编码）</td></tr>
+    <tr><td><code>GameAudioSwitcher.log</code></td><td>运行日志（每次切换自动记录，可用来排查问题）</td></tr>
+    <tr><td><code>build.bat</code> + 源码 <code>*.cs</code></td><td>编译脚本与源码（如需重新编译）</td></tr>
+    <tr><td><code>AuditAudio.exe / SetTest.exe</code></td><td>诊断工具（查看设备列表、测试切换，非必需）</td></tr>
+  </table>
+
+  <h2>二、使用方法</h2>
+  <div class="step"><strong>1.</strong> 双击 <code>GameAudioSwitcher.exe</code> 启动（桌面双击或固定到任务栏均可）。</div>
+  <div class="step"><strong>2.</strong> 程序驻留托盘，图标为蓝色耳机图形。此时开始自动监测。</div>
+  <div class="step"><strong>3.</strong> 打开无畏契约 / 暗区突围:无限 —— 检测到游戏本体进程后约 2 秒内自动切到耳机，托盘弹出提示。</div>
+  <div class="step"><strong>4.</strong> 关闭游戏 —— 自动恢复扬声器。</div>
+  <div class="step"><strong>5.</strong> 右键托盘图标：可查看当前状态、开关「开机自启」、退出程序。</div>
+
+  <h2>三、已验证的测试结果（2026-08-31）</h2>
+  <div class="card">
+    <table>
+      <tr><th>场景</th><th>结果</th></tr>
+      <tr><td>程序启动、配置加载</td><td class="ok">通过（设备名/进程名/轮询间隔均正确读取）</td></tr>
+      <tr><td>模拟游戏启动 → 切换耳机</td><td class="ok">通过（日志确认「已切换输出到耳机」，系统默认设备实际变为耳机）</td></tr>
+      <tr><td>模拟游戏关闭 → 恢复扬声器</td><td class="ok">通过（日志确认「已恢复输出到扬声器」，系统默认设备实际变为扬声器）</td></tr>
+      <tr><td>耳机不可用时不切换</td><td class="ok">通过（逻辑保护：端点非 ACTIVE 状态时跳过切换）</td></tr>
+      <tr><td>开机自启注册</td><td class="ok">已写入 HKCU 启动项（重启电脑后自动运行）</td></tr>
+    </table>
+  </div>
+
+  <h2>四、配置文件说明（config.ini）</h2>
+  <div class="file">[devices]
+headphone=耳机 (Realtek(R) Audio)   ← 游戏时切换到的设备（与系统声音设置名称一致）
+speaker=扬声器 (Realtek(R) Audio)   ← 无游戏时的设备
+
+[settings]
+poll_interval_ms=2000    ← 检测间隔（毫秒，最小 500）
+balloon=1                ← 切换气泡提示（1 开 / 0 关）
+
+[games]
+processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;ABInfinite-Win64-Shipping.exe;ABInfinite.exe
+                         ← 游戏本体进程名，分号分隔，任一存在即视为游戏运行中</div>
+  <p class="warn">修改 config.ini 后需重启程序生效。</p>
+
+  <h2>五、注意事项</h2>
+  <ul>
+    <li><b>耳机需保持插入</b>：耳机端点不可用（未插入 / 被禁用）时，程序会跳过切换、不强行接管，避免无声。</li>
+    <li><b>切换策略</b>：仅在「游戏启动 / 游戏关闭」瞬间自动切换；游戏运行期间你手动切换设备不会被干预（边界切换模式）。</li>
+    <li><b>暗区突围进程名</b>：已按公开资料配置 <code>ABInfinite-Win64-Shipping.exe</code> / <code>ABInfinite.exe</code>。若实际运行后未触发切换，查看任务管理器确认游戏进程名，在 config.ini 的 <code>processes=</code> 中修改即可，无需重新编译。</li>
+    <li><b>若移动 exe 位置</b>：需要重新在托盘菜单勾选一次「开机自启」（启动项指向旧路径会失效）。</li>
+    <li><b>多开保护</b>：重复启动只会提示已在运行，不会重复占用。</li>
+  </ul>
+
+  <div class="footer">GameAudioSwitcher · 生成于 2026-08-31 · 托盘右键可随时退出</div>
+</div>
+</body>
+</html>
