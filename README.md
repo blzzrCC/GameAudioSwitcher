@@ -27,8 +27,9 @@ poll_interval_ms=2000               ; 进程检测间隔（毫秒，最小 500�
 balloon=1                           ; 切换气泡提示（1 开 / 0 关）
 
 [games]
-processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;ABInfinite-Win64-Shipping.exe;ABInfinite.exe
+processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;UAGame.exe;ABInfinite-Win64-Shipping.exe;ABInfinite.exe
                                     ; 游戏本体进程名，分号分隔，任一存在即视为运行中
+                                    ; 暗区突围:无限 国服(WeGame)本体进程为 UAGame.exe
 ```
 
 ## 自行构建
