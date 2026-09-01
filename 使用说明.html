@@ -74,15 +74,16 @@ poll_interval_ms=2000    ← 检测间隔（毫秒，最小 500）
 balloon=1                ← 切换气泡提示（1 开 / 0 关）
 
 [games]
-processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;ABInfinite-Win64-Shipping.exe;ABInfinite.exe
-                         ← 游戏本体进程名，分号分隔，任一存在即视为游戏运行中</div>
+processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;UAGame.exe;ABInfinite-Win64-Shipping.exe;ABInfinite.exe
+                         ← 游戏本体进程名，分号分隔，任一存在即视为游戏运行中
+                         ← 暗区突围:无限 国服(WeGame)本体进程为 UAGame.exe</div>
   <p class="warn">修改 config.ini 后需重启程序生效。</p>
 
   <h2>五、注意事项</h2>
   <ul>
     <li><b>耳机需保持插入</b>：耳机端点不可用（未插入 / 被禁用）时，程序会跳过切换、不强行接管，避免无声。</li>
     <li><b>切换策略</b>：仅在「游戏启动 / 游戏关闭」瞬间自动切换；游戏运行期间你手动切换设备不会被干预（边界切换模式）。</li>
-    <li><b>暗区突围进程名</b>：已按公开资料配置 <code>ABInfinite-Win64-Shipping.exe</code> / <code>ABInfinite.exe</code>。若实际运行后未触发切换，查看任务管理器确认游戏进程名，在 config.ini 的 <code>processes=</code> 中修改即可，无需重新编译。</li>
+    <li><b>暗区突围进程名</b>：国服 WeGame 版本体进程为 <code>UAGame.exe</code>（国际版为 <code>ABInfinite-Win64-Shipping.exe</code> / <code>ABInfinite.exe</code>），均已内置。若游戏更新后进程名变化，查看任务管理器确认后修改 config.ini 的 <code>processes=</code> 即可，无需重新编译。</li>
     <li><b>若移动 exe 位置</b>：需要重新在托盘菜单勾选一次「开机自启」（启动项指向旧路径会失效）。</li>
     <li><b>多开保护</b>：重复启动只会提示已在运行，不会重复占用。</li>
   </ul>
