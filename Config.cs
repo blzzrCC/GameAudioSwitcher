@@ -12,6 +12,8 @@ namespace GameAudioSwitcher
         public string SpeakerName = "扬声器 (Realtek(R) Audio)";
         public int PollIntervalMs = 2000;
         public bool BalloonEnabled = true;
+        /// <summary>全局切换快捷键，如 Ctrl+Alt+H；空串表示禁用。</summary>
+        public string Hotkey = "Ctrl+Alt+H";
         public List<string> GameProcessNames = new List<string>();
 
         public static Config CreateDefault()
@@ -69,6 +71,10 @@ namespace GameAudioSwitcher
                     {
                         cfg.BalloonEnabled = value.Equals("1") || value.Equals("true", StringComparison.OrdinalIgnoreCase);
                     }
+                    else if (key == "hotkey")
+                    {
+                        cfg.Hotkey = value;
+                    }
                 }
                 else if (section == "games")
                 {
@@ -105,7 +111,11 @@ namespace GameAudioSwitcher
             sb.AppendLine("; 游戏进程检测间隔（毫秒，最小 500）");
             sb.AppendLine("poll_interval_ms=" + cfg.PollIntervalMs);
             sb.AppendLine("; 切换时是否显示托盘气泡通知（1=显示，0=关闭）");
-            sb.AppendLine("balloon=1");
+            sb.AppendLine("balloon=" + (cfg.BalloonEnabled ? "1" : "0"));
+            sb.AppendLine("; 全局切换快捷键：任意界面（含全屏游戏）按下即在 耳机/扬声器 间切换");
+            sb.AppendLine("; 格式：修饰键用 + 连接主键，如 Ctrl+Alt+H；留空=禁用");
+            sb.AppendLine("; 也可在托盘菜单「设置切换快捷键…」中弹窗修改（改后立即生效）");
+            sb.AppendLine("hotkey=" + cfg.Hotkey);
             sb.AppendLine("");
             sb.AppendLine("[games]");
             sb.AppendLine("; 游戏本体进程名列表，多个用英文分号 ; 分隔，不含 .exe 亦可");

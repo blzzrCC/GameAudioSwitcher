@@ -51,6 +51,84 @@ namespace GameAudioSwitcher
             }
         }
 
+        /// <summary>暂停自动切换：停表并重置边界状态（程序仍驻留，手动切换/快捷键不受影响）。</summary>
+        public void Pause()
+        {
+            Stop();
+            _lastGameDetected = false;
+            _headphoneWasUnavailable = false;
+        }
+
+        /// <summary>恢复自动切换：重新开始轮询。</summary>
+        public void Resume()
+        {
+            Start();
+        }
+
+        /// <summary>
+        /// 一次性校正到应有状态（供"恢复自动切换"时调用，避免暂停期间错过边界）：
+        /// 游戏运行中 → 确保耳机；无游戏 → 确保扬声器。之后边界状态同步，轮询不会重复切换。
+        /// </summary>
+        public void Reconcile()
+        {
+            if (_busy) return;
+            _busy = true;
+            try
+            {
+                bool game = IsGameRunning();
+                bool headphoneOk = AudioCore.IsDeviceAvailable(_config.HeadphoneName);
+
+                if (game)
+                {
+                    if (headphoneOk)
+                    {
+                        _headphoneWasUnavailable = false;
+                        if (!IsCurrentDevice(_config.HeadphoneName))
+                        {
+                            bool ok = AudioCore.SetDefaultDevice(_config.HeadphoneName);
+                            if (ok)
+                                Raise("自动切换已恢复：检测到游戏，已切换输出到「" + _config.HeadphoneName + "」", true);
+                            else
+                                Raise("自动切换已恢复：检测到游戏，但切换耳机失败，请检查设备", true);
+                        }
+                        else
+                        {
+                            Raise("自动切换已恢复：游戏运行中，当前输出已是「" + _config.HeadphoneName + "」", false);
+                        }
+                    }
+                    else
+                    {
+                        _headphoneWasUnavailable = true;
+                        Raise("自动切换已恢复：游戏运行中，但耳机当前不可用，未切换", true);
+                    }
+                }
+                else
+                {
+                    if (!IsCurrentDevice(_config.SpeakerName))
+                    {
+                        bool ok = AudioCore.SetDefaultDevice(_config.SpeakerName);
+                        if (ok)
+                            Raise("自动切换已恢复：无游戏运行，已恢复输出到「" + _config.SpeakerName + "」", true);
+                        else
+                            Raise("自动切换已恢复：恢复扬声器失败，请检查设备", true);
+                    }
+                    else
+                    {
+                        Raise("自动切换已恢复：无游戏运行，当前输出已是「" + _config.SpeakerName + "」", false);
+                    }
+                }
+                _lastGameDetected = game;
+            }
+            catch (Exception ex)
+            {
+                Raise("自动切换恢复出错：" + ex.Message, false);
+            }
+            finally
+            {
+                _busy = false;
+            }
+        }
+
         private void Tick(object state)
         {
             if (_busy) return;
@@ -62,15 +140,23 @@ namespace GameAudioSwitcher
 
                 if (game && !_lastGameDetected)
                 {
-                    // 边界：游戏刚启动 → 切耳机（耳机不可用则跳过）
+                    // 边界：游戏刚启动 → 切耳机（耳机不可用则跳过；已是耳机则无需操作）
                     if (headphoneOk)
                     {
-                        bool ok = AudioCore.SetDefaultDevice(_config.HeadphoneName);
-                        _headphoneWasUnavailable = !ok;
-                        if (ok)
-                            Raise("检测到游戏启动，已切换输出到「" + _config.HeadphoneName + "」", true);
+                        if (IsCurrentDevice(_config.HeadphoneName))
+                        {
+                            _headphoneWasUnavailable = false;
+                            Raise("检测到游戏启动，当前输出已是「" + _config.HeadphoneName + "」", false);
+                        }
                         else
-                            Raise("检测到游戏启动，但切换耳机失败，请检查设备", true);
+                        {
+                            bool ok = AudioCore.SetDefaultDevice(_config.HeadphoneName);
+                            _headphoneWasUnavailable = !ok;
+                            if (ok)
+                                Raise("检测到游戏启动，已切换输出到「" + _config.HeadphoneName + "」", true);
+                            else
+                                Raise("检测到游戏启动，但切换耳机失败，请检查设备", true);
+                        }
                     }
                     else
                     {
@@ -80,13 +166,21 @@ namespace GameAudioSwitcher
                 }
                 else if (!game && _lastGameDetected)
                 {
-                    // 边界：游戏刚关闭 → 恢复扬声器
-                    bool ok = AudioCore.SetDefaultDevice(_config.SpeakerName);
-                    _headphoneWasUnavailable = false;
-                    if (ok)
-                        Raise("游戏已关闭，已恢复输出到「" + _config.SpeakerName + "」", true);
+                    // 边界：游戏刚关闭 → 恢复扬声器（已是扬声器则无需操作）
+                    if (IsCurrentDevice(_config.SpeakerName))
+                    {
+                        _headphoneWasUnavailable = false;
+                        Raise("游戏已关闭，当前输出已是「" + _config.SpeakerName + "」", false);
+                    }
                     else
-                        Raise("游戏已关闭，但恢复扬声器失败，请检查设备", true);
+                    {
+                        bool ok = AudioCore.SetDefaultDevice(_config.SpeakerName);
+                        _headphoneWasUnavailable = false;
+                        if (ok)
+                            Raise("游戏已关闭，已恢复输出到「" + _config.SpeakerName + "」", true);
+                        else
+                            Raise("游戏已关闭，但恢复扬声器失败，请检查设备", true);
+                    }
                 }
                 else if (game && _headphoneWasUnavailable && headphoneOk)
                 {
@@ -135,6 +229,13 @@ namespace GameAudioSwitcher
                 }
             }
             return false;
+        }
+
+        /// <summary>当前系统默认输出设备是否已是指定设备。</summary>
+        private bool IsCurrentDevice(string deviceName)
+        {
+            string current = AudioCore.GetCurrentDefaultDeviceName();
+            return current != null && current.Equals(deviceName, StringComparison.OrdinalIgnoreCase);
         }
 
         private void Raise(string message, bool showBalloon)

@@ -31,7 +31,7 @@
   <h1>🎧 游戏音频自动切换 · 使用说明</h1>
 
   <div class="card">
-    <p><strong>功能</strong>：当检测到 <b>无畏契约</b> 或 <b>暗区突围:无限</b> 的游戏本体运行时，自动将系统默认输出设备（含语音通信设备）切换为 <b>耳机</b>；游戏全部关闭后，自动恢复为 <b>扬声器</b>。</p>
+    <p><strong>功能</strong>：当检测到 <b>无畏契约</b> 或 <b>暗区突围:无限</b> 的游戏本体运行时，自动将系统默认输出设备（含语音通信设备）切换为 <b>耳机</b>；游戏全部关闭后，自动恢复为 <b>扬声器</b>。也支持随时手动切换与全局快捷键切换。</p>
     <p><strong>形态</strong>：托盘常驻应用 —— 启动后驻留系统托盘（任务栏右下角），右键图标可退出，退出后进程完全结束、不占用后台。</p>
   </div>
 
@@ -50,7 +50,20 @@
   <div class="step"><strong>2.</strong> 程序驻留托盘，图标为蓝色耳机图形。此时开始自动监测。</div>
   <div class="step"><strong>3.</strong> 打开无畏契约 / 暗区突围:无限 —— 检测到游戏本体进程后约 2 秒内自动切到耳机，托盘弹出提示。</div>
   <div class="step"><strong>4.</strong> 关闭游戏 —— 自动恢复扬声器。</div>
-  <div class="step"><strong>5.</strong> 右键托盘图标：可查看当前状态、开关「开机自启」、退出程序。</div>
+  <div class="step"><strong>5.</strong> 右键托盘图标打开菜单，功能如下：</div>
+  <div class="card">
+    <table>
+      <tr><th>菜单项</th><th>说明</th></tr>
+      <tr><td>状态：…</td><td>当前运行状态与最近一次操作结果</td></tr>
+      <tr><td>立即切换输出设备</td><td>点击后立即在 耳机 ↔ 扬声器 之间切换</td></tr>
+      <tr><td>设置切换快捷键…</td><td>弹出窗口，按下组合键即可自定义全局快捷键（默认 Ctrl+Alt+H，可留空关闭）</td></tr>
+      <tr><td>开机自启</td><td>勾选 = 登录 Windows 时自动运行</td></tr>
+      <tr><td>自动切换：已开启 / 已暂停</td><td><b>总开关</b>：取消勾选暂停「检测游戏并自动切换」，程序仍驻留；恢复勾选后自动校正回应有状态（有游戏→耳机 / 无游戏→扬声器）</td></tr>
+      <tr><td>退出</td><td>结束程序，完全释放后台</td></tr>
+    </table>
+    <p class="warn">全局快捷键在任何界面都生效（含全屏游戏），且不受「自动切换」暂停影响。</p>
+  </div>
+  <div class="step"><strong>6.</strong> <b>快捷键手动切换</b>：按 <code>Ctrl+Alt+H</code>（默认）即切到另一个输出设备 —— 当前是耳机则切扬声器，反之切耳机。</div>
 
   <h2>三、已验证的测试结果（2026-08-31）</h2>
   <div class="card">
@@ -72,12 +85,13 @@ speaker=扬声器 (Realtek(R) Audio)   ← 无游戏时的设备
 [settings]
 poll_interval_ms=2000    ← 检测间隔（毫秒，最小 500）
 balloon=1                ← 切换气泡提示（1 开 / 0 关）
+hotkey=Ctrl+Alt+H        ← 全局切换快捷键（留空 = 禁用；可在托盘菜单弹窗修改）
 
 [games]
 processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;UAGame.exe;ABInfinite-Win64-Shipping.exe;ABInfinite.exe
                          ← 游戏本体进程名，分号分隔，任一存在即视为游戏运行中
                          ← 暗区突围:无限 国服(WeGame)本体进程为 UAGame.exe</div>
-  <p class="warn">修改 config.ini 后需重启程序生效。</p>
+  <p class="warn">修改 config.ini 后需重启程序生效（托盘菜单改快捷键则立即生效并自动写回本文件）。</p>
 
   <h2>五、注意事项</h2>
   <ul>
@@ -85,10 +99,11 @@ processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;UAGame.exe;ABInfinite-Win64-S
     <li><b>切换策略</b>：仅在「游戏启动 / 游戏关闭」瞬间自动切换；游戏运行期间你手动切换设备不会被干预（边界切换模式）。</li>
     <li><b>暗区突围进程名</b>：国服 WeGame 版本体进程为 <code>UAGame.exe</code>（国际版为 <code>ABInfinite-Win64-Shipping.exe</code> / <code>ABInfinite.exe</code>），均已内置。若游戏更新后进程名变化，查看任务管理器确认后修改 config.ini 的 <code>processes=</code> 即可，无需重新编译。</li>
     <li><b>若移动 exe 位置</b>：需要重新在托盘菜单勾选一次「开机自启」（启动项指向旧路径会失效）。</li>
+    <li><b>快捷键规则</b>：需包含 Ctrl / Alt / Shift 之一（或单独使用 F1-F24），避免误触；若提示注册失败，说明该组合已被其他程序占用，换一个即可。</li>
     <li><b>多开保护</b>：重复启动只会提示已在运行，不会重复占用。</li>
   </ul>
 
-  <div class="footer">GameAudioSwitcher · 生成于 2026-08-31 · 托盘右键可随时退出</div>
+  <div class="footer">GameAudioSwitcher · 更新于 2026-09-02 · v1.1.0 · 托盘右键可随时退出</div>
 </div>
 </body>
 </html>
