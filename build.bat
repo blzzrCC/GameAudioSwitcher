@@ -14,7 +14,7 @@ echo Compiling GameAudioSwitcher.exe ...
   /reference:System.Drawing.dll ^
   /reference:System.Windows.Forms.dll ^
   /reference:System.Core.dll ^
-  Program.cs AudioCore.cs Config.cs GameMonitor.cs
+  Program.cs AudioCore.cs Config.cs GameMonitor.cs HotkeyManager.cs HotkeyCaptureForm.cs
 if errorlevel 1 (
     echo BUILD_FAIL_MAIN
     exit /b 1
