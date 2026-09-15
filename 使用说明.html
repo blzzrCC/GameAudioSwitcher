@@ -39,7 +39,7 @@
   <h2>一、文件清单</h2>
   <table>
     <tr><th>文件</th><th>说明</th></tr>
-    <tr><td><code>GameAudioSwitcher.exe</code></td><td>主程序（.NET Framework 4.8，Windows 10/11 自带运行环境，双击即用），已内嵌头像图标</td></tr>
+    <tr><td><code>GameAudioSwitcher.exe</code></td><td>主程序（.NET Framework 4.8，Windows 10/11 自带运行环境，双击即用），已内嵌耳机图标</td></tr>
     <tr><td><code>config.ini</code></td><td>配置文件（设备名 / 游戏进程名 / 检测间隔，UTF-8 编码）</td></tr>
     <tr><td><code>GameAudioSwitcher.log</code></td><td>运行日志（每次切换自动记录，可用来排查问题）</td></tr>
     <tr><td><code>app.ico</code></td><td>应用图标源文件（9 种尺寸：16/20/24/32/40/48/64/128/256）</td></tr>
@@ -50,7 +50,7 @@
 
   <h2>二、使用方法</h2>
   <div class="step"><strong>1.</strong> 双击 <code>GameAudioSwitcher.exe</code> 启动（桌面双击或固定到任务栏均可）。</div>
-  <div class="step"><strong>2.</strong> 程序驻留托盘，图标为主人头像图案（猫咪插画）。此时开始自动监测。</div>
+  <div class="step"><strong>2.</strong> 程序驻留托盘，图标为耳机图案（耳机 + 双向切换箭头）。此时开始自动监测。</div>
   <div class="step"><strong>3.</strong> <b>首次使用先确认设备</b>：若程序提示「未找到配置中的音频设备」，会直接弹出扫描窗口 —— 点「自动识别」→「保存并应用」即可（详见第三节）。配置本就正确时不会打扰你。</div>
   <div class="step"><strong>4.</strong> 打开无畏契约 / 暗区突围:无限 —— 检测到游戏本体进程后约 2 秒内自动切到耳机，托盘弹出提示。</div>
   <div class="step"><strong>5.</strong> 关闭游戏 —— 自动恢复扬声器。</div>
@@ -104,7 +104,7 @@
       <tr><td>耳机不可用时不切换</td><td class="ok">通过（逻辑保护：端点非 ACTIVE 状态时跳过切换）</td></tr>
       <tr><td>开机自启注册</td><td class="ok">已写入 HKCU 启动项（重启电脑后自动运行）</td></tr>
       <tr><td>设备扫描 + 自动识别（v1.2.0）</td><td class="ok">通过（扫出 36 个端点，正确定位 ACTIVE 的 耳机 / 扬声器 并标记当前默认项）</td></tr>
-      <tr><td>图标嵌入（v1.2.0）</td><td class="ok">通过（app.ico 9 种尺寸已嵌入 EXE，16px / 32px 帧运行时均可正常加载）</td></tr>
+      <tr><td>图标嵌入（v1.2.1）</td><td class="ok">通过（app.ico 9 种尺寸（耳机图案）已嵌入 EXE，EXE 内含 18 个 PNG 帧、资源名 AppIcon.ico 可读）</td></tr>
     </table>
   </div>
 
@@ -134,10 +134,10 @@ processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;UAGame.exe;ABInfinite-Win64-S
     <li><b>若移动 exe 位置</b>：需要重新在托盘菜单勾选一次「开机自启」（启动项指向旧路径会失效）。</li>
     <li><b>快捷键规则</b>：需包含 Ctrl / Alt / Shift 之一（或单独使用 F1-F24），避免误触；若提示注册失败，说明该组合已被其他程序占用，换一个即可。</li>
     <li><b>多开保护</b>：重复启动只会提示已在运行，不会重复占用。</li>
-    <li><b>图标</b>：EXE 与托盘图标均已换成头像图案；日志中会记录实际生效的图标来源（「托盘图标已加载，来源：嵌入资源 AppIcon.ico…」），可据此确认。</li>
+    <li><b>图标</b>：EXE 与托盘图标均已换成耳机图案（耳机 + 双向切换箭头）；日志中会记录实际生效的图标来源（「托盘图标已加载，来源：嵌入资源 AppIcon.ico…」），可据此确认。</li>
   </ul>
 
-  <div class="footer">GameAudioSwitcher · 更新于 2026-09-15 · v1.2.0 · 托盘右键可随时退出</div>
+  <div class="footer">GameAudioSwitcher · 更新于 2026-09-15 · v1.2.1 · 托盘右键可随时退出</div>
 </div>
 </body>
 </html>
