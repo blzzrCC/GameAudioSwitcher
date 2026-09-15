@@ -33,28 +33,33 @@
   <div class="card">
     <p><strong>功能</strong>：当检测到 <b>无畏契约</b> 或 <b>暗区突围:无限</b> 的游戏本体运行时，自动将系统默认输出设备（含语音通信设备）切换为 <b>耳机</b>；游戏全部关闭后，自动恢复为 <b>扬声器</b>。也支持随时手动切换与全局快捷键切换。</p>
     <p><strong>形态</strong>：托盘常驻应用 —— 启动后驻留系统托盘（任务栏右下角），右键图标可退出，退出后进程完全结束、不占用后台。</p>
+    <p><strong>新用户提示</strong>：首次运行会自动检测配置中的设备是否存在于本机；若对不上，程序会<b>自动弹出「扫描音频输出设备」窗口</b>，一键识别耳机与扬声器，无需手工填写设备名。</p>
   </div>
 
   <h2>一、文件清单</h2>
   <table>
     <tr><th>文件</th><th>说明</th></tr>
-    <tr><td><code>GameAudioSwitcher.exe</code></td><td>主程序（.NET Framework 4.8，Windows 10/11 自带运行环境，双击即用）</td></tr>
+    <tr><td><code>GameAudioSwitcher.exe</code></td><td>主程序（.NET Framework 4.8，Windows 10/11 自带运行环境，双击即用），已内嵌头像图标</td></tr>
     <tr><td><code>config.ini</code></td><td>配置文件（设备名 / 游戏进程名 / 检测间隔，UTF-8 编码）</td></tr>
     <tr><td><code>GameAudioSwitcher.log</code></td><td>运行日志（每次切换自动记录，可用来排查问题）</td></tr>
+    <tr><td><code>app.ico</code></td><td>应用图标源文件（9 种尺寸：16/20/24/32/40/48/64/128/256）</td></tr>
     <tr><td><code>build.bat</code> + 源码 <code>*.cs</code></td><td>编译脚本与源码（如需重新编译）</td></tr>
+    <tr><td><code>make_icon.py / verify_icon.py</code></td><td>图标生成与校验脚本（可选，需 Python + Pillow）</td></tr>
     <tr><td><code>AuditAudio.exe / SetTest.exe</code></td><td>诊断工具（查看设备列表、测试切换，非必需）</td></tr>
   </table>
 
   <h2>二、使用方法</h2>
   <div class="step"><strong>1.</strong> 双击 <code>GameAudioSwitcher.exe</code> 启动（桌面双击或固定到任务栏均可）。</div>
-  <div class="step"><strong>2.</strong> 程序驻留托盘，图标为蓝色耳机图形。此时开始自动监测。</div>
-  <div class="step"><strong>3.</strong> 打开无畏契约 / 暗区突围:无限 —— 检测到游戏本体进程后约 2 秒内自动切到耳机，托盘弹出提示。</div>
-  <div class="step"><strong>4.</strong> 关闭游戏 —— 自动恢复扬声器。</div>
-  <div class="step"><strong>5.</strong> 右键托盘图标打开菜单，功能如下：</div>
+  <div class="step"><strong>2.</strong> 程序驻留托盘，图标为主人头像图案（猫咪插画）。此时开始自动监测。</div>
+  <div class="step"><strong>3.</strong> <b>首次使用先确认设备</b>：若程序提示「未找到配置中的音频设备」，会直接弹出扫描窗口 —— 点「自动识别」→「保存并应用」即可（详见第三节）。配置本就正确时不会打扰你。</div>
+  <div class="step"><strong>4.</strong> 打开无畏契约 / 暗区突围:无限 —— 检测到游戏本体进程后约 2 秒内自动切到耳机，托盘弹出提示。</div>
+  <div class="step"><strong>5.</strong> 关闭游戏 —— 自动恢复扬声器。</div>
+  <div class="step"><strong>6.</strong> 右键托盘图标打开菜单，功能如下：</div>
   <div class="card">
     <table>
       <tr><th>菜单项</th><th>说明</th></tr>
       <tr><td>状态：…</td><td>当前运行状态与最近一次操作结果</td></tr>
+      <tr><td>扫描音频输出设备…</td><td><b>新增</b>：自动扫描本机全部输出端点，并自动识别耳机 / 扬声器，一键生成配置（新用户首选）</td></tr>
       <tr><td>立即切换输出设备</td><td>点击后立即在 耳机 ↔ 扬声器 之间切换</td></tr>
       <tr><td>设置切换快捷键…</td><td>弹出窗口，按下组合键即可自定义全局快捷键（默认 Ctrl+Alt+H，可留空关闭）</td></tr>
       <tr><td>开机自启</td><td>勾选 = 登录 Windows 时自动运行</td></tr>
@@ -63,9 +68,33 @@
     </table>
     <p class="warn">全局快捷键在任何界面都生效（含全屏游戏），且不受「自动切换」暂停影响。</p>
   </div>
-  <div class="step"><strong>6.</strong> <b>快捷键手动切换</b>：按 <code>Ctrl+Alt+H</code>（默认）即切到另一个输出设备 —— 当前是耳机则切扬声器，反之切耳机。</div>
+  <div class="step"><strong>7.</strong> <b>快捷键手动切换</b>：按 <code>Ctrl+Alt+H</code>（默认）即切到另一个输出设备 —— 当前是耳机则切扬声器，反之切耳机。</div>
 
-  <h2>三、已验证的测试结果（2026-08-31）</h2>
+  <h2>三、新用户配置设备（自动扫描）</h2>
+  <div class="card">
+    <h3>什么时候用</h3>
+    <p>换新电脑、重装系统、换了耳机/音箱，或程序提示「未找到配置中的音频设备」时。这个功能的作用是：<b>不必再去「系统声音设置」里手工抄写设备名称</b>。</p>
+    <h3>操作步骤</h3>
+    <div class="step"><strong>1.</strong> 右键托盘图标 → 点「<b>扫描音频输出设备…</b>」（首次运行若设备对不上会<b>自动弹出</b>该窗口）。</div>
+    <div class="step"><strong>2.</strong> 窗口列出本机全部输出端点（名称 / 状态 / 是否当前默认），并已按「可用优先、默认优先」排序。</div>
+    <div class="step"><strong>3.</strong> 点「<b>自动识别</b>」：程序按名称关键字（耳机 / Headphone / Headset…、扬声器 / Speaker…）自动填好「耳机」与「扬声器」两栏。</div>
+    <div class="step"><strong>4.</strong> 也可手动指定：在列表中选中一行 → 点「<b>设为耳机</b>」或「<b>设为扬声器</b>」。</div>
+    <div class="step"><strong>5.</strong> 点「<b>测试切换到所选设备</b>」当场验证能否切换成功（系统默认输出会真的切过去）。</div>
+    <div class="step"><strong>6.</strong> 点「<b>保存并应用</b>」—— 写回 <code>config.ini</code> 并<b>立即生效，无需重启程序</b>。</div>
+    <h3>界面元素说明</h3>
+    <table>
+      <tr><th>元素</th><th>说明</th></tr>
+      <tr><td>只显示可用设备</td><td>默认勾选。取消勾选可看到历史遗留的失效端点（显示为灰色「不存在」），一般无需理会</td></tr>
+      <tr><td>重新扫描</td><td>插拔设备后点一下刷新列表</td></tr>
+      <tr><td>自动识别</td><td>按名称关键字一键推定耳机 / 扬声器配对</td></tr>
+      <tr><td>设为耳机 / 设为扬声器</td><td>把列表中选中的设备填入对应栏位</td></tr>
+      <tr><td>测试切换到所选设备</td><td>立即把系统默认输出切到该设备，用于验证</td></tr>
+      <tr><td>保存并应用</td><td>保存到 config.ini，并立即对运行中的程序生效</td></tr>
+    </table>
+    <p class="warn">保存时会做校验：若所填设备<b>不在扫描结果中</b>或<b>当前不可用</b>，会先给出警告并请你二次确认，避免存下一个永远切不过去的设备名。</p>
+  </div>
+
+  <h2>四、已验证的测试结果（2026-08-31）</h2>
   <div class="card">
     <table>
       <tr><th>场景</th><th>结果</th></tr>
@@ -74,10 +103,12 @@
       <tr><td>模拟游戏关闭 → 恢复扬声器</td><td class="ok">通过（日志确认「已恢复输出到扬声器」，系统默认设备实际变为扬声器）</td></tr>
       <tr><td>耳机不可用时不切换</td><td class="ok">通过（逻辑保护：端点非 ACTIVE 状态时跳过切换）</td></tr>
       <tr><td>开机自启注册</td><td class="ok">已写入 HKCU 启动项（重启电脑后自动运行）</td></tr>
+      <tr><td>设备扫描 + 自动识别（v1.2.0）</td><td class="ok">通过（扫出 36 个端点，正确定位 ACTIVE 的 耳机 / 扬声器 并标记当前默认项）</td></tr>
+      <tr><td>图标嵌入（v1.2.0）</td><td class="ok">通过（app.ico 9 种尺寸已嵌入 EXE，16px / 32px 帧运行时均可正常加载）</td></tr>
     </table>
   </div>
 
-  <h2>四、配置文件说明（config.ini）</h2>
+  <h2>五、配置文件说明（config.ini）</h2>
   <div class="file">[devices]
 headphone=耳机 (Realtek(R) Audio)   ← 游戏时切换到的设备（与系统声音设置名称一致）
 speaker=扬声器 (Realtek(R) Audio)   ← 无游戏时的设备
@@ -93,18 +124,20 @@ processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;UAGame.exe;ABInfinite-Win64-S
                          ← 暗区突围:无限 国服(WeGame)本体进程为 UAGame.exe</div>
   <p class="warn">修改 config.ini 后需重启程序生效（托盘菜单改快捷键则立即生效并自动写回本文件）。</p>
 
-  <h2>五、注意事项</h2>
+  <h2>六、注意事项</h2>
   <ul>
     <li><b>耳机需保持插入</b>：耳机端点不可用（未插入 / 被禁用）时，程序会跳过切换、不强行接管，避免无声。</li>
-    <li><b>设备名自动容错</b>：系统中存在同名音频端点时，Windows 会给设备名加序号（如 <code>耳机 (2- Realtek(R) Audio)</code>）。程序匹配时会自动忽略该序号，因此 config.ini 保持「耳机 (Realtek(R) Audio)」这类基础名称即可，驱动重装或设备插拔后通常无需修改。</li>
+    <li><b>设备名自动容错</b>：系统中存在同名音频端点时，Windows 会给设备名加序号（如 <code>耳机 (2- Realtek(R) Audio)</code>）。程序匹配时会自动忽略该序号，因此 config.ini 保持「耳机 (Realtek(R) Audio)」这类基础名称即可，驱动重装或设备插拔后通常无需修改。用「扫描音频输出设备」保存时会写入当前实际名称（含序号），同样具备这层容错。</li>
+    <li><b>首次运行自动引导</b>：若配置中的耳机与扬声器在本机都匹配不到可用端点，程序启动约 1 秒后会自动弹出扫描窗口（仅此一种情况会主动弹窗，日常不会打扰）。</li>
     <li><b>切换策略</b>：仅在「游戏启动 / 游戏关闭」瞬间自动切换；游戏运行期间你手动切换设备不会被干预（边界切换模式）。</li>
     <li><b>暗区突围进程名</b>：国服 WeGame 版本体进程为 <code>UAGame.exe</code>（国际版为 <code>ABInfinite-Win64-Shipping.exe</code> / <code>ABInfinite.exe</code>），均已内置。若游戏更新后进程名变化，查看任务管理器确认后修改 config.ini 的 <code>processes=</code> 即可，无需重新编译。</li>
     <li><b>若移动 exe 位置</b>：需要重新在托盘菜单勾选一次「开机自启」（启动项指向旧路径会失效）。</li>
     <li><b>快捷键规则</b>：需包含 Ctrl / Alt / Shift 之一（或单独使用 F1-F24），避免误触；若提示注册失败，说明该组合已被其他程序占用，换一个即可。</li>
     <li><b>多开保护</b>：重复启动只会提示已在运行，不会重复占用。</li>
+    <li><b>图标</b>：EXE 与托盘图标均已换成头像图案；日志中会记录实际生效的图标来源（「托盘图标已加载，来源：嵌入资源 AppIcon.ico…」），可据此确认。</li>
   </ul>
 
-  <div class="footer">GameAudioSwitcher · 更新于 2026-09-11 · v1.1.1 · 托盘右键可随时退出</div>
+  <div class="footer">GameAudioSwitcher · 更新于 2026-09-15 · v1.2.0 · 托盘右键可随时退出</div>
 </div>
 </body>
 </html>

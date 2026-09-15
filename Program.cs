@@ -82,6 +82,18 @@ namespace GameAudioSwitcher
             _monitor.StateChanged += OnMonitorStateChanged;
             _monitor.Start();
 
+            // 新用户引导：等消息循环跑起来再做设备配置自检，
+            // 首次运行 / 换机导致配置对不上时自动弹出「扫描音频输出设备」向导。
+            System.Windows.Forms.Timer startupCheck = new System.Windows.Forms.Timer();
+            startupCheck.Interval = 1200;
+            startupCheck.Tick += delegate
+            {
+                startupCheck.Stop();
+                startupCheck.Dispose();
+                CheckDeviceConfigOnStartup();
+            };
+            startupCheck.Start();
+
             Application.ApplicationExit += delegate { OnExit(); };
             Application.Run();
         }
@@ -90,13 +102,17 @@ namespace GameAudioSwitcher
         {
             _trayIcon = new NotifyIcon();
             _trayIcon.Text = AppName;
-            _trayIcon.Icon = CreateTrayIcon();
+            _trayIcon.Icon = AppIcon.LoadForTray();
             _trayIcon.Visible = true;
+            Log("托盘图标已加载，来源：" + AppIcon.LastSource);
 
             ContextMenuStrip menu = new ContextMenuStrip();
 
             _statusItem = new ToolStripMenuItem("状态：正在检测游戏…");
             _statusItem.Enabled = false;
+
+            ToolStripMenuItem scanItem = new ToolStripMenuItem("扫描音频输出设备…");
+            scanItem.Click += delegate { ShowScanDialog(false); };
 
             ToolStripMenuItem manualItem = new ToolStripMenuItem("立即切换输出设备");
             manualItem.Click += delegate { ManualSwitchDevice(false); };
@@ -116,6 +132,7 @@ namespace GameAudioSwitcher
             exitItem.Click += delegate { ExitApplication(); };
 
             menu.Items.Add(_statusItem);
+            menu.Items.Add(scanItem);
             menu.Items.Add(manualItem);
             menu.Items.Add(_hotkeyMenuItem);
             menu.Items.Add(new ToolStripSeparator());
@@ -387,38 +404,96 @@ namespace GameAudioSwitcher
             }
         }
 
-        private static Icon CreateTrayIcon()
-        {
-            using (Bitmap bmp = new Bitmap(32, 32))
-            {
-                using (Graphics g = Graphics.FromImage(bmp))
-                {
-                    g.SmoothingMode = SmoothingMode.AntiAlias;
-                    g.Clear(Color.Transparent);
+        // ================= 扫描音频输出设备 =================
 
-                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(41, 128, 185)))
-                    {
-                        // 左右耳罩
-                        g.FillEllipse(brush, 3, 13, 10, 14);
-                        g.FillEllipse(brush, 19, 13, 10, 14);
-                        // 中间连接
-                        g.FillRectangle(brush, 8, 15, 16, 6);
-                    }
-                    using (Pen pen = new Pen(Color.FromArgb(41, 128, 185), 4))
-                    {
-                        // 头梁弧线
-                        g.DrawArc(pen, 3, 1, 26, 26, 200, 140);
-                    }
+        /// <summary>
+        /// 打开扫描窗口。autoTriggered=true 表示由首次运行引导自动弹出（用于文案区分）。
+        /// 用户点「保存并应用」后立即写入 config.ini 并刷新设备名引用，无需重启程序。
+        /// </summary>
+        private static void ShowScanDialog(bool autoTriggered)
+        {
+            if (_config == null) return;
+
+            using (DeviceScanForm form = new DeviceScanForm(_config.HeadphoneName, _config.SpeakerName))
+            {
+                if (form.ShowDialog() != DialogResult.OK) return;
+
+                string hp = form.HeadphoneName;
+                string sp = form.SpeakerName;
+                string notes = form.SaveNotes;
+                if (notes.Length > 0) Log("扫描音频输出设备提示：" + notes);
+
+                bool unchanged =
+                    string.Equals(hp, _config.HeadphoneName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(sp, _config.SpeakerName, StringComparison.OrdinalIgnoreCase);
+                if (unchanged)
+                {
+                    Log("扫描音频输出设备：设备名无变化，未改动配置。");
+                    ShowBalloon("设备名未变化，配置保持不变。", 1500);
+                    return;
                 }
-                IntPtr hIcon = bmp.GetHicon();
+
+                string oldHp = _config.HeadphoneName;
+                string oldSp = _config.SpeakerName;
+                _config.HeadphoneName = hp;
+                _config.SpeakerName = sp;
+
                 try
                 {
-                    return Icon.FromHandle(hIcon);
+                    Config.SaveTo(_configPath, _config);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    return SystemIcons.Application;
+                    MessageBox.Show("保存 config.ini 失败：" + ex.Message
+                        + "\n新设备名在本机仍生效，重启后将丢失。", AppName,
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
+
+                Log("扫描音频输出设备：耳机 " + oldHp + " → " + hp + "；扬声器 " + oldSp + " → " + sp);
+                SetStatus("设备配置已更新：耳机「" + hp + "」/ 扬声器「" + sp + "」");
+
+                string tip = "设备配置已保存并生效：游戏启动切「" + hp + "」，游戏关闭回「" + sp + "」";
+                if (notes.Length > 0) tip += "。" + notes + "。";
+                ShowBalloon(tip, 2500);
+            }
+        }
+
+        /// <summary>
+        /// 新用户引导：启动时若配置中的耳机/扬声器在本机无法匹配到可用端点，
+        /// 说明配置沿用了默认值或设备已变动 —— 直接弹出扫描窗口，一步完成配置。
+        /// </summary>
+        private static void CheckDeviceConfigOnStartup()
+        {
+            if (_config == null || _trayIcon == null) return;
+
+            bool hpOk;
+            bool spOk;
+            try
+            {
+                hpOk = AudioCore.IsDeviceAvailable(_config.HeadphoneName);
+                spOk = AudioCore.IsDeviceAvailable(_config.SpeakerName);
+            }
+            catch { return; }
+
+            if (hpOk && spOk)
+            {
+                Log("设备配置自检通过：耳机「" + _config.HeadphoneName + "」/ 扬声器「" + _config.SpeakerName + "」均可用。");
+                return;
+            }
+
+            if (!hpOk && !spOk)
+            {
+                // 两个都对不上：典型的首次运行 / 换机场景，直接引导
+                Log("设备配置自检未通过：耳机与扬声器均未匹配到可用设备，自动打开扫描窗口引导配置。");
+                ShowBalloon("未找到配置中的音频设备，正在打开「扫描音频输出设备」向导…", 3000);
+                ShowScanDialog(true);
+            }
+            else
+            {
+                string bad = hpOk ? _config.SpeakerName : _config.HeadphoneName;
+                string role = hpOk ? "扬声器" : "耳机";
+                Log("设备配置自检警告：" + role + "「" + bad + "」当前不可用。");
+                ShowBalloon("提示：" + role + "「" + bad + "」当前未找到，可右键托盘图标选择「扫描音频输出设备…」重新指定。", 3000);
             }
         }
     }

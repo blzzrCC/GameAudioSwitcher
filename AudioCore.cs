@@ -142,14 +142,230 @@ namespace GameAudioSwitcher
         [PreserveSig] int SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string pszDeviceName, [MarshalAs(UnmanagedType.Bool)] bool bVisible);
     }
 
+    /// <summary>渲染端点的扫描结果（供「扫描音频输出设备」界面使用）。</summary>
+    internal class AudioDeviceInfo
+    {
+        private const int STATE_ACTIVE = 0x1;
+
+        /// <summary>FriendlyName 原样，可能带 Windows 消歧序号，如「耳机 (2- Realtek(R) Audio)」。</summary>
+        public string Name = "";
+        /// <summary>剥离消歧序号后的名称，用于跨驱动重枚举的稳定匹配。</summary>
+        public string BaseName = "";
+        /// <summary>端点 ID（如 {0.0.0.00000000}.{...}）。</summary>
+        public string Id = "";
+        /// <summary>端点状态原始掩码。</summary>
+        public int State = -1;
+        /// <summary>是否为当前系统默认输出设备（eConsole 角色）。</summary>
+        public bool IsDefault;
+
+        /// <summary>是否处于 ACTIVE（可用）状态。</summary>
+        public bool IsActive { get { return (State & STATE_ACTIVE) != 0; } }
+
+        /// <summary>状态中文描述。</summary>
+        public string StateText
+        {
+            get
+            {
+                if (IsActive) return "可用";
+                if ((State & (int)DevState.UNPLUGGED) != 0) return "未插入";
+                if ((State & (int)DevState.DISABLED) != 0) return "已禁用";
+                if ((State & (int)DevState.NOTPRESENT) != 0) return "不存在";
+                return "未知(" + State + ")";
+            }
+        }
+    }
+
     /// <summary>音频设备核心操作：枚举、可用性检测、切换默认设备。</summary>
     internal static class AudioCore
     {
         private static readonly Guid PKEY_Device_FriendlyName = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0");
 
+        // 耳机类设备主关键字（小写比对，覆盖中英文常见命名）
+        private static readonly string[] HeadphoneKeywords = {
+            "耳机", "耳麦", "headphone", "headset", "earphone", "earbud", "airpod", "buds", "tws"
+        };
+        // 扬声器类设备主关键字
+        private static readonly string[] SpeakerKeywords = {
+            "扬声器", "喇叭", "speaker", "speakers"
+        };
+        // 扬声器类设备次关键字（显示器/数字输出等非常规命名，兜底用）
+        private static readonly string[] SpeakerSecondaryKeywords = {
+            "display audio", "hdmi", "digital output", "line out", "spdif"
+        };
+
         private static IMMDeviceEnumerator CreateEnumerator()
         {
             return (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
+        }
+
+        /// <summary>
+        /// 扫描全部渲染端点，返回含名称 / 归一化名称 / ID / 状态 / 是否默认 的完整信息。
+        /// 排序：可用优先 → 当前默认优先 → 名称升序，便于界面首屏直接落在可用设备上。
+        /// </summary>
+        public static List<AudioDeviceInfo> ScanRenderDevices()
+        {
+            List<AudioDeviceInfo> result = new List<AudioDeviceInfo>();
+            string defaultId = GetDefaultDeviceId();
+
+            try
+            {
+                IMMDeviceEnumerator enumerator = CreateEnumerator();
+                IMMDeviceCollection collection;
+                int hr = enumerator.EnumAudioEndpoints(EDataFlow.eRender, DevState.ALL, out collection);
+                if (hr != 0 || collection == null)
+                {
+                    Marshal.ReleaseComObject(enumerator);
+                    return result;
+                }
+
+                uint count;
+                collection.GetCount(out count);
+                for (uint i = 0; i < count; i++)
+                {
+                    IMMDevice device;
+                    if (collection.Item(i, out device) != 0 || device == null) continue;
+
+                    string name = GetFriendlyName(device);
+                    if (name != null)
+                    {
+                        AudioDeviceInfo info = new AudioDeviceInfo();
+                        info.Name = name;
+                        info.BaseName = NormalizeDeviceName(name);
+
+                        string id;
+                        if (device.GetId(out id) == 0) info.Id = id;
+                        info.IsDefault = id != null && defaultId != null &&
+                            id.Equals(defaultId, StringComparison.OrdinalIgnoreCase);
+
+                        int state = -1;
+                        device.GetState(out state);
+                        info.State = state;
+
+                        result.Add(info);
+                    }
+                    Marshal.ReleaseComObject(device);
+                }
+
+                Marshal.ReleaseComObject(collection);
+                Marshal.ReleaseComObject(enumerator);
+            }
+            catch { }
+
+            result.Sort(delegate(AudioDeviceInfo a, AudioDeviceInfo b)
+            {
+                if (a.IsActive != b.IsActive) return a.IsActive ? -1 : 1;
+                if (a.IsDefault != b.IsDefault) return a.IsDefault ? -1 : 1;
+                return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+            });
+            return result;
+        }
+
+        /// <summary>
+        /// 从扫描结果中自动推定「耳机 / 扬声器」配对，供新用户一键完成配置。
+        /// 推定顺序（先只看可用端点，再退回全量，以覆盖「耳机未插入但系统中有记录」的常见情形）：
+        ///   扬声器：主关键字 → 次关键字 → 当前默认设备 → 可用末端点 → 全量末端点
+        ///   耳机  ：可用端点主关键字 → 全量端点主关键字 → 可用剩余端点 → 全量剩余端点
+        /// </summary>
+        public static void AutoDetectPair(List<AudioDeviceInfo> devices, out string headphone, out string speaker)
+        {
+            headphone = null;
+            speaker = null;
+            if (devices == null || devices.Count == 0) return;
+
+            List<AudioDeviceInfo> all = devices;
+            List<AudioDeviceInfo> active = new List<AudioDeviceInfo>();
+            foreach (AudioDeviceInfo d in all) if (d.IsActive) active.Add(d);
+
+            // ---- 扬声器 ----
+            AudioDeviceInfo sp = FirstMatch(active, SpeakerKeywords);
+            if (sp == null) sp = FirstMatch(active, SpeakerSecondaryKeywords);
+            if (sp == null)
+            {
+                foreach (AudioDeviceInfo d in active) if (d.IsDefault) { sp = d; break; }
+            }
+            if (sp == null && active.Count > 0) sp = active[active.Count - 1];
+            if (sp == null) sp = all[all.Count - 1];
+
+            // ---- 耳机 ----
+            AudioDeviceInfo hp = FirstMatch(active, HeadphoneKeywords, sp);
+            if (hp == null) hp = FirstMatch(all, HeadphoneKeywords, sp);
+            if (hp == null) hp = FirstOther(active, sp);
+            if (hp == null) hp = FirstOther(all, sp);
+
+            if (hp != null) headphone = hp.Name;
+            if (sp != null) speaker = sp.Name;
+
+            // 两者仍指向同一端点时，说明本机只有一个输出设备：保留扬声器，耳机留空由用户决定
+            if (headphone != null && speaker != null &&
+                headphone.Equals(speaker, StringComparison.OrdinalIgnoreCase))
+                headphone = null;
+        }
+
+        /// <summary>名称是否命中耳机类关键字。</summary>
+        public static bool LooksLikeHeadphone(string name)
+        {
+            return ContainsAny(name, HeadphoneKeywords);
+        }
+
+        /// <summary>名称是否命中扬声器类关键字。</summary>
+        public static bool LooksLikeSpeaker(string name)
+        {
+            return ContainsAny(name, SpeakerKeywords) || ContainsAny(name, SpeakerSecondaryKeywords);
+        }
+
+        private static AudioDeviceInfo FirstMatch(List<AudioDeviceInfo> pool, string[] keywords)
+        {
+            return FirstMatch(pool, keywords, null);
+        }
+
+        private static AudioDeviceInfo FirstMatch(List<AudioDeviceInfo> pool, string[] keywords, AudioDeviceInfo exclude)
+        {
+            foreach (AudioDeviceInfo d in pool)
+            {
+                if (exclude != null && d.Name.Equals(exclude.Name, StringComparison.OrdinalIgnoreCase)) continue;
+                if (ContainsAny(d.Name, keywords)) return d;
+            }
+            return null;
+        }
+
+        private static AudioDeviceInfo FirstOther(List<AudioDeviceInfo> pool, AudioDeviceInfo exclude)
+        {
+            foreach (AudioDeviceInfo d in pool)
+            {
+                if (exclude != null && d.Name.Equals(exclude.Name, StringComparison.OrdinalIgnoreCase)) continue;
+                return d;
+            }
+            return null;
+        }
+
+        private static bool ContainsAny(string name, string[] keywords)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            string lower = name.ToLowerInvariant();
+            foreach (string k in keywords)
+                if (lower.IndexOf(k, StringComparison.Ordinal) >= 0) return true;
+            return false;
+        }
+
+        /// <summary>取当前默认输出端点的 ID（eConsole 角色），失败返回 null。</summary>
+        private static string GetDefaultDeviceId()
+        {
+            try
+            {
+                IMMDeviceEnumerator enumerator = CreateEnumerator();
+                IMMDevice endpoint;
+                if (enumerator.GetDefaultAudioEndpoint(EDataFlow.eRender, ERole.eConsole, out endpoint) != 0)
+                {
+                    Marshal.ReleaseComObject(enumerator);
+                    return null;
+                }
+                string id;
+                endpoint.GetId(out id);
+                Marshal.ReleaseComObject(endpoint);
+                Marshal.ReleaseComObject(enumerator);
+                return id;
+            }
+            catch { return null; }
         }
 
         /// <summary>枚举所有渲染端点：返回 (名称, 状态) 列表。</summary>
