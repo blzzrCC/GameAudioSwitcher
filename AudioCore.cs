@@ -293,6 +293,41 @@ namespace GameAudioSwitcher
             return r1 == 0 && r2 == 0 && r3 == 0;
         }
 
+        /// <summary>
+        /// 归一化设备名：剥离 Windows 端点重名消歧序号，便于跨界面/驱动变化稳定匹配。
+        /// 实测两种形式：
+        ///   ① 序号在名称开头，如 "2- 耳机 (Realtek(R) Audio)"
+        ///   ② 序号在首个括号内，如 "耳机 (2- Realtek(R) Audio)"（本机实际形态）
+        /// 严格匹配「数字 + '-' + 空格」结构，形如 "5-1 音箱" 不会被误剥离。
+        /// </summary>
+        public static string NormalizeDeviceName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+
+            // 形态①：名称开头的 "N- "
+            int i = 0;
+            while (i < name.Length && name[i] >= '0' && name[i] <= '9') i++;
+            if (i > 0 && i + 1 < name.Length && name[i] == '-' && name[i + 1] == ' ')
+                return name.Substring(i + 2);
+
+            // 形态②：首个 '(' 之后的 "N- "
+            int open = name.IndexOf('(');
+            if (open >= 0)
+            {
+                int k = open + 1;
+                int digitsStart = k;
+                while (k < name.Length && name[k] >= '0' && name[k] <= '9') k++;
+                if (k > digitsStart && k + 1 < name.Length && name[k] == '-' && name[k + 1] == ' ')
+                    return name.Substring(0, open + 1) + name.Substring(k + 2);
+            }
+
+            return name;
+        }
+
+        /// <summary>
+        /// 按名称查找渲染端点。名称比对前做归一化（忽略 Windows 的「N- 」重名前缀），
+        /// 并优先返回 ACTIVE 端点，避免命中同名但已失效（NOTPRESENT）的历史端点。
+        /// </summary>
         private static IMMDevice FindDevice(string friendlyName)
         {
             IMMDeviceEnumerator enumerator = CreateEnumerator();
@@ -304,21 +339,40 @@ namespace GameAudioSwitcher
                 return null;
             }
 
-            IMMDevice result = null;
+            string target = NormalizeDeviceName(friendlyName);
+            IMMDevice active = null;    // 可用端点（优先采用）
+            IMMDevice inactive = null;  // 匹配但不可用（兜底，由调用方再做状态校验）
+
             uint count;
             collection.GetCount(out count);
             for (uint i = 0; i < count; i++)
             {
                 IMMDevice device;
                 if (collection.Item(i, out device) != 0 || device == null) continue;
+
                 string name = GetFriendlyName(device);
-                if (name != null && name.Equals(friendlyName, StringComparison.OrdinalIgnoreCase))
+                bool match = name != null &&
+                    (name.Equals(friendlyName, StringComparison.OrdinalIgnoreCase) ||
+                     NormalizeDeviceName(name).Equals(target, StringComparison.OrdinalIgnoreCase));
+                if (!match)
                 {
-                    result = device;
+                    Marshal.ReleaseComObject(device);
+                    continue;
+                }
+
+                int state = -1;
+                device.GetState(out state);
+                if ((state & (int)DevState.ACTIVE) != 0)
+                {
+                    active = device;   // 命中可用端点，直接采用
                     break;
                 }
-                Marshal.ReleaseComObject(device);
+                if (inactive == null) inactive = device;
+                else Marshal.ReleaseComObject(device);
             }
+
+            if (active != null && inactive != null) Marshal.ReleaseComObject(inactive);
+            IMMDevice result = active != null ? active : inactive;
 
             Marshal.ReleaseComObject(collection);
             Marshal.ReleaseComObject(enumerator);

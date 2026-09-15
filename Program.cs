@@ -258,7 +258,10 @@ namespace GameAudioSwitcher
 
             string current = AudioCore.GetCurrentDefaultDeviceName();
             string target;
-            if (current != null && current.Equals(_config.HeadphoneName, StringComparison.OrdinalIgnoreCase))
+            // 与耳机比对时忽略 Windows 端点的「N- 」重名前缀，避免误判导致反复"切到耳机"
+            if (current != null &&
+                AudioCore.NormalizeDeviceName(current).Equals(
+                    AudioCore.NormalizeDeviceName(_config.HeadphoneName), StringComparison.OrdinalIgnoreCase))
                 target = _config.SpeakerName;
             else
                 target = _config.HeadphoneName;
