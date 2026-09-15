@@ -96,6 +96,7 @@ processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;UAGame.exe;ABInfinite-Win64-S
   <h2>五、注意事项</h2>
   <ul>
     <li><b>耳机需保持插入</b>：耳机端点不可用（未插入 / 被禁用）时，程序会跳过切换、不强行接管，避免无声。</li>
+    <li><b>设备名自动容错</b>：系统中存在同名音频端点时，Windows 会给设备名加序号（如 <code>耳机 (2- Realtek(R) Audio)</code>）。程序匹配时会自动忽略该序号，因此 config.ini 保持「耳机 (Realtek(R) Audio)」这类基础名称即可，驱动重装或设备插拔后通常无需修改。</li>
     <li><b>切换策略</b>：仅在「游戏启动 / 游戏关闭」瞬间自动切换；游戏运行期间你手动切换设备不会被干预（边界切换模式）。</li>
     <li><b>暗区突围进程名</b>：国服 WeGame 版本体进程为 <code>UAGame.exe</code>（国际版为 <code>ABInfinite-Win64-Shipping.exe</code> / <code>ABInfinite.exe</code>），均已内置。若游戏更新后进程名变化，查看任务管理器确认后修改 config.ini 的 <code>processes=</code> 即可，无需重新编译。</li>
     <li><b>若移动 exe 位置</b>：需要重新在托盘菜单勾选一次「开机自启」（启动项指向旧路径会失效）。</li>
@@ -103,7 +104,7 @@ processes=VALORANT-Win64-Shipping.exe;VALORANT.exe;UAGame.exe;ABInfinite-Win64-S
     <li><b>多开保护</b>：重复启动只会提示已在运行，不会重复占用。</li>
   </ul>
 
-  <div class="footer">GameAudioSwitcher · 更新于 2026-09-02 · v1.1.0 · 托盘右键可随时退出</div>
+  <div class="footer">GameAudioSwitcher · 更新于 2026-09-11 · v1.1.1 · 托盘右键可随时退出</div>
 </div>
 </body>
 </html>

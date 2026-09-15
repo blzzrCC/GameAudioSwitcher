@@ -47,13 +47,14 @@ build.bat
 
 ## 工作原理
 
-- 通过 `IMMDeviceEnumerator` 枚举渲染端点，按 `FriendlyName` 精确匹配设备，并校验端点 `ACTIVE` 状态
+- 通过 `IMMDeviceEnumerator` 枚举渲染端点，按 `FriendlyName` 匹配设备（比对时自动忽略 Windows 为同名端点添加的「N- 」消歧序号，如 `耳机 (2- Realtek(R) Audio)`），并优先选择 `ACTIVE` 端点、校验其状态
 - 通过未文档化的 `PolicyConfig` COM 接口（`CLSID 870AF99C-...`，Redstone → Win7 → Vista 接口级联）调用 `SetDefaultEndpoint`，同时设置 eConsole / eMultimedia / eCommunications 三个角色
 - 状态机按「游戏进程出现/消失」边界触发切换，运行期间不干预用户手动设置
 - 全局快捷键通过 `RegisterHotKey` 注册到隐藏消息窗口（`NativeWindow`），收到 `WM_HOTKEY` 后在耳机/扬声器间切换；暂停自动切换不影响快捷键
 
 ## 版本历史
 
+- **v1.1.1**（2026-09-11）：修复 Windows 端点重名导致切换失败的问题。设备名匹配现会忽略 Windows 自动添加的「N- 」消歧序号（如 `耳机 (2- Realtek(R) Audio)`），并在同名端点中优先选用可用（ACTIVE）的那个，避免命中已失效的历史端点；手动切换的当前设备判定同步归一化。
 - **v1.1.0**（2026-09-02）：托盘新增「自动切换」总开关与「立即切换输出设备」「设置切换快捷键…」；新增可自定义的全局切换快捷键（默认 Ctrl+Alt+H），支持弹窗按键捕获并同步写入 config.ini。
 - **v1.0.0**（2026-09-01）：首个公开版本。支持无畏契约 / 暗区突围:无限，双设备自动切换，托盘界面，开机自启，配置化进程名与设备名。
 

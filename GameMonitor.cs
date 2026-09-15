@@ -231,11 +231,14 @@ namespace GameAudioSwitcher
             return false;
         }
 
-        /// <summary>当前系统默认输出设备是否已是指定设备。</summary>
+        /// <summary>当前系统默认输出设备是否已是指定设备（比对时忽略 Windows 端点的「N- 」重名前缀）。</summary>
         private bool IsCurrentDevice(string deviceName)
         {
             string current = AudioCore.GetCurrentDefaultDeviceName();
-            return current != null && current.Equals(deviceName, StringComparison.OrdinalIgnoreCase);
+            if (current == null || deviceName == null) return false;
+            if (current.Equals(deviceName, StringComparison.OrdinalIgnoreCase)) return true;
+            return AudioCore.NormalizeDeviceName(current).Equals(
+                AudioCore.NormalizeDeviceName(deviceName), StringComparison.OrdinalIgnoreCase);
         }
 
         private void Raise(string message, bool showBalloon)
