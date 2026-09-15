@@ -8,13 +8,19 @@ if not exist "%CSC%" (
 )
 
 echo Compiling GameAudioSwitcher.exe ...
+if not exist app.ico (
+    echo APP_ICON_NOT_FOUND - 请先运行 make_icon.py 生成 app.ico
+    exit /b 1
+)
 "%CSC%" /nologo /target:winexe /platform:anycpu /codepage:65001 /optimize+ ^
   /out:GameAudioSwitcher.exe ^
+  /win32icon:app.ico ^
+  /resource:app.ico,AppIcon.ico ^
   /reference:System.dll ^
   /reference:System.Drawing.dll ^
   /reference:System.Windows.Forms.dll ^
   /reference:System.Core.dll ^
-  Program.cs AudioCore.cs Config.cs GameMonitor.cs HotkeyManager.cs HotkeyCaptureForm.cs
+  Program.cs AudioCore.cs Config.cs GameMonitor.cs HotkeyManager.cs HotkeyCaptureForm.cs AppIcon.cs DeviceScanForm.cs
 if errorlevel 1 (
     echo BUILD_FAIL_MAIN
     exit /b 1

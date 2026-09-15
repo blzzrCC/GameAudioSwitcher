@@ -12,6 +12,10 @@ namespace GameAudioSwitcher
         {
             try
             {
+                // 保证中文设备名在 cmd / PowerShell 中正常显示
+                try { Console.OutputEncoding = System.Text.Encoding.UTF8; }
+                catch { }
+
                 Console.WriteLine("=== 渲染端点列表（ALL） ===");
                 List<KeyValuePair<string, int>> devices = AudioCore.ListRenderDevices();
                 foreach (KeyValuePair<string, int> kv in devices)
@@ -31,6 +35,25 @@ namespace GameAudioSwitcher
                 Console.WriteLine("=== 当前默认输出设备 ===");
                 string def = AudioCore.GetCurrentDefaultDeviceName();
                 Console.WriteLine("  " + (def == null ? "(获取失败)" : def));
+
+                Console.WriteLine("=== 扫描结果（ScanRenderDevices：排序 + 默认标记） ===");
+                List<AudioDeviceInfo> scanned = AudioCore.ScanRenderDevices();
+                for (int i = 0; i < scanned.Count; i++)
+                {
+                    AudioDeviceInfo d = scanned[i];
+                    Console.WriteLine("  " + (i + 1) + ". [" + d.StateText + "]"
+                        + (d.IsDefault ? "[默认]" : "      ") + " " + d.Name);
+                    Console.WriteLine("      归一化：" + d.BaseName);
+                }
+
+                Console.WriteLine("=== 自动识别（AutoDetectPair） ===");
+                string autoHp;
+                string autoSp;
+                AudioCore.AutoDetectPair(scanned, out autoHp, out autoSp);
+                Console.WriteLine("  耳机  => " + (autoHp == null ? "(未推定)" : autoHp));
+                Console.WriteLine("  扬声器 => " + (autoSp == null ? "(未推定)" : autoSp));
+                Console.WriteLine("  关键字命中：耳机=" + AudioCore.LooksLikeHeadphone(def)
+                    + "，扬声器=" + AudioCore.LooksLikeSpeaker(def));
 
                 Console.WriteLine("=== 耳机可用性 ===");
                 string headphone = "耳机 (Realtek(R) Audio)";
