@@ -208,6 +208,12 @@ namespace GameAudioSwitcher
             }
         }
 
+        /// <summary>当前是否有任一配置的游戏进程在运行（供启动时的「开机切换」判断，避免打断运行中的游戏）。</summary>
+        public bool IsGameRunningNow()
+        {
+            return IsGameRunning();
+        }
+
         private bool IsGameRunning()
         {
             string[] names = _config.GameProcessNames.ToArray();

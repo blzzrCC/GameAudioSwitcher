@@ -25,6 +25,10 @@ namespace GameAudioSwitcher
         private static ToolStripMenuItem _autoStartItem;
         private static ToolStripMenuItem _autoSwitchItem;
         private static ToolStripMenuItem _hotkeyMenuItem;
+        private static ToolStripMenuItem _startupMenu;
+        private static ToolStripMenuItem _startupHeadphoneItem;
+        private static ToolStripMenuItem _startupSpeakerItem;
+        private static ToolStripMenuItem _startupNoneItem;
         private static bool _autoSwitchOn = true;
 
         private static HotkeyWindow _hotkeyWindow;
@@ -68,7 +72,8 @@ namespace GameAudioSwitcher
                 "，扬声器=" + _config.SpeakerName +
                 "，轮询间隔=" + _config.PollIntervalMs + "ms，进程=" +
                 string.Join(";", _config.GameProcessNames.ToArray()) +
-                "，快捷键=" + hotkeyDesc);
+                "，快捷键=" + hotkeyDesc +
+                "，开机切换=" + Config.NormalizeStartupSwitch(_config.StartupSwitch));
 
             // 热键消息窗口须在注册前建好句柄
             _hotkeyWindow = new HotkeyWindow();
@@ -128,6 +133,20 @@ namespace GameAudioSwitcher
             _autoSwitchItem.Checked = true;
             _autoSwitchItem.Click += delegate { ToggleAutoSwitch(); };
 
+            // 开机（程序启动）时把系统默认输出切到所选设备
+            _startupMenu = new ToolStripMenuItem("开机时切换至");
+            _startupSpeakerItem = new ToolStripMenuItem("扬声器");
+            _startupHeadphoneItem = new ToolStripMenuItem("耳机");
+            _startupNoneItem = new ToolStripMenuItem("不切换（跟随系统）");
+            _startupSpeakerItem.Click += delegate { SetStartupSwitch("speaker"); };
+            _startupHeadphoneItem.Click += delegate { SetStartupSwitch("headphone"); };
+            _startupNoneItem.Click += delegate { SetStartupSwitch("none"); };
+            _startupMenu.DropDownItems.Add(_startupSpeakerItem);
+            _startupMenu.DropDownItems.Add(_startupHeadphoneItem);
+            _startupMenu.DropDownItems.Add(new ToolStripSeparator());
+            _startupMenu.DropDownItems.Add(_startupNoneItem);
+            RefreshStartupMenuChecks();
+
             ToolStripMenuItem exitItem = new ToolStripMenuItem("退出");
             exitItem.Click += delegate { ExitApplication(); };
 
@@ -137,6 +156,7 @@ namespace GameAudioSwitcher
             menu.Items.Add(_hotkeyMenuItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(_autoStartItem);
+            menu.Items.Add(_startupMenu);
             menu.Items.Add(_autoSwitchItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(exitItem);
@@ -227,6 +247,126 @@ namespace GameAudioSwitcher
                 }
             }
             catch { return false; }
+        }
+
+        // ================= 开机切换目标设备 =================
+
+        /// <summary>刷新「开机时切换至」子菜单的标题与勾选状态。</summary>
+        private static void RefreshStartupMenuChecks()
+        {
+            if (_startupMenu == null) return;
+
+            string mode = (_config == null) ? "none" : Config.NormalizeStartupSwitch(_config.StartupSwitch);
+            bool hp = (mode == "headphone");
+            bool sp = (mode == "speaker");
+
+            _startupHeadphoneItem.Checked = hp;
+            _startupSpeakerItem.Checked = sp;
+            _startupNoneItem.Checked = (!hp && !sp);
+
+            if (hp) _startupMenu.Text = "开机时切换至：耳机";
+            else if (sp) _startupMenu.Text = "开机时切换至：扬声器";
+            else _startupMenu.Text = "开机时切换至：不切换";
+        }
+
+        /// <summary>设置开机切换目标并写入 config.ini（下次程序启动时执行）。</summary>
+        private static void SetStartupSwitch(string mode)
+        {
+            if (_config == null) return;
+
+            string normalized = Config.NormalizeStartupSwitch(mode);
+            _config.StartupSwitch = normalized;
+
+            try
+            {
+                Config.SaveTo(_configPath, _config);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("保存 config.ini 失败：" + ex.Message + "\n本机仍生效，重启后将丢失。", AppName,
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            RefreshStartupMenuChecks();
+
+            string msg;
+            if (normalized == "none")
+            {
+                msg = "已设置：开机启动时不改变系统默认输出设备";
+            }
+            else
+            {
+                string label = (normalized == "headphone") ? "耳机" : "扬声器";
+                msg = "已设置：开机启动时自动切换到「" + label + "」";
+                if (!IsAutoStartEnabled())
+                    msg += "（需同时在菜单勾选「开机自启」才能随开机生效）";
+            }
+
+            Log("开机切换设置：startup_switch=" + normalized);
+            SetStatus(msg);
+            ShowBalloon(msg, 2800);
+        }
+
+        /// <summary>
+        /// 程序启动后执行一次「开机切换」：把系统默认输出切到用户所选设备。
+        /// 仅在无游戏运行、且目标设备可用时执行 —— 避免开机瞬间打断运行中的游戏，或误切到不可用端点。
+        /// </summary>
+        private static void ApplyStartupSwitch()
+        {
+            if (_config == null) return;
+
+            string mode = Config.NormalizeStartupSwitch(_config.StartupSwitch);
+            if (mode == "none")
+            {
+                Log("开机切换：未启用，保持系统当前默认输出设备。");
+                return;
+            }
+
+            if (_monitor != null && _monitor.IsGameRunningNow())
+            {
+                Log("开机切换：跳过 —— 检测到游戏正在运行，交由自动切换状态机处理。");
+                return;
+            }
+
+            string target = (mode == "headphone") ? _config.HeadphoneName : _config.SpeakerName;
+            string label = (mode == "headphone") ? "耳机" : "扬声器";
+
+            bool available;
+            try { available = AudioCore.IsDeviceAvailable(target); }
+            catch { available = false; }
+
+            if (!available)
+            {
+                string skipMsg = "开机切换已跳过：" + label + "「" + target + "」当前不可用";
+                Log(skipMsg);
+                SetStatus(skipMsg);
+                ShowBalloon(skipMsg, 2600);
+                return;
+            }
+
+            if (IsCurrentDevice(target))
+            {
+                Log("开机切换：当前输出已是「" + target + "」，无需切换。");
+                return;
+            }
+
+            bool ok = AudioCore.SetDefaultDevice(target);
+            string doneMsg = ok
+                ? "开机切换：已切换输出到「" + target + "」"
+                : "开机切换失败：目标设备「" + target + "」不可用或未找到";
+            Log(doneMsg);
+            SetStatus(doneMsg);
+            ShowBalloon(doneMsg, ok ? 2200 : 2800);
+        }
+
+        /// <summary>当前系统默认输出设备是否已是指定设备（比对时忽略 Windows 端点的「N- 」重名前缀）。</summary>
+        private static bool IsCurrentDevice(string deviceName)
+        {
+            string current = AudioCore.GetCurrentDefaultDeviceName();
+            if (current == null || deviceName == null) return false;
+            if (current.Equals(deviceName, StringComparison.OrdinalIgnoreCase)) return true;
+            return AudioCore.NormalizeDeviceName(current).Equals(
+                AudioCore.NormalizeDeviceName(deviceName), StringComparison.OrdinalIgnoreCase);
         }
 
         // ================= 自动切换总开关（打开/关闭） =================
@@ -478,6 +618,7 @@ namespace GameAudioSwitcher
             if (hpOk && spOk)
             {
                 Log("设备配置自检通过：耳机「" + _config.HeadphoneName + "」/ 扬声器「" + _config.SpeakerName + "」均可用。");
+                ApplyStartupSwitch();
                 return;
             }
 

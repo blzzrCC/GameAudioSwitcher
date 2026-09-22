@@ -14,7 +14,19 @@ namespace GameAudioSwitcher
         public bool BalloonEnabled = true;
         /// <summary>全局切换快捷键，如 Ctrl+Alt+H；空串表示禁用。</summary>
         public string Hotkey = "Ctrl+Alt+H";
+        /// <summary>程序启动（含开机自启）时自动切换到的设备：headphone / speaker / none（不切换）。</summary>
+        public string StartupSwitch = "speaker";
         public List<string> GameProcessNames = new List<string>();
+
+        /// <summary>把配置值规整为 speaker / headphone / none 三者之一；无法识别时退回 none（不切换）。</summary>
+        public static string NormalizeStartupSwitch(string value)
+        {
+            if (value == null) return "none";
+            string v = value.Trim().ToLowerInvariant();
+            if (v == "speaker") return "speaker";
+            if (v == "headphone") return "headphone";
+            return "none";
+        }
 
         public static Config CreateDefault()
         {
@@ -75,6 +87,10 @@ namespace GameAudioSwitcher
                     {
                         cfg.Hotkey = value;
                     }
+                    else if (key == "startup_switch")
+                    {
+                        cfg.StartupSwitch = NormalizeStartupSwitch(value);
+                    }
                 }
                 else if (section == "games")
                 {
@@ -116,6 +132,11 @@ namespace GameAudioSwitcher
             sb.AppendLine("; 格式：修饰键用 + 连接主键，如 Ctrl+Alt+H；留空=禁用");
             sb.AppendLine("; 也可在托盘菜单「设置切换快捷键…」中弹窗修改（改后立即生效）");
             sb.AppendLine("hotkey=" + cfg.Hotkey);
+            sb.AppendLine("; 开机切换：程序启动（含开机自启）时自动切换到的设备");
+            sb.AppendLine("; 取值 speaker=扬声器 / headphone=耳机 / none=不切换");
+            sb.AppendLine("; 仅在无游戏运行时执行，避免开机瞬间打断正在运行的游戏");
+            sb.AppendLine("; 也可在托盘菜单「开机时切换至」中修改（改后立即写入本文件）");
+            sb.AppendLine("startup_switch=" + NormalizeStartupSwitch(cfg.StartupSwitch));
             sb.AppendLine("");
             sb.AppendLine("[games]");
             sb.AppendLine("; 游戏本体进程名列表，多个用英文分号 ; 分隔，不含 .exe 亦可");
